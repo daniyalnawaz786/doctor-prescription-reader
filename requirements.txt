@@ -1,0 +1,16 @@
+torch
+transformers==4.53.3
+datasets
+evaluate
+accelerate
+sentencepiece
+jiwer
+opencv-python
+pillow
+pandas
+numpy
+matplotlib
+tqdm
+streamlit
+kagglehub
+python-doctr    # full-page word detection (Stage 1); optional, torch-backed
