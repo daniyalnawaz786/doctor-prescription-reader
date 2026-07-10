@@ -29,10 +29,16 @@ def _to_rgb(image):
     raise TypeError(f"Unsupported image type: {type(image)}")
 
 
-def _crop_boxes(pil_image, boxes):
-    """Turn (x0, y0, x1, y1) pixel boxes into result dicts with crops."""
+def _crop_boxes(pil_image, boxes, min_side=4):
+    """Turn (x0, y0, x1, y1) pixel boxes into result dicts with crops.
+
+    Boxes narrower or shorter than ``min_side`` pixels are dropped: they hold
+    no readable text and their degenerate shapes confuse downstream OCR.
+    """
     results = []
     for (x0, y0, x1, y1) in boxes:
+        if (x1 - x0) < min_side or (y1 - y0) < min_side:
+            continue
         crop = pil_image.crop((x0, y0, x1, y1))
         results.append({"bbox": (int(x0), int(y0), int(x1), int(y1)), "crop": crop})
     return results

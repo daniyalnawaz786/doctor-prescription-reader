@@ -27,10 +27,11 @@ env/
 *.log
 
 # Model Checkpoints
-models/*.bin
-models/*.pt
-models/*.pth
-models/*.ckpt
+models/**/*.bin
+models/**/*.pt
+models/**/*.pth
+models/**/*.ckpt
+models/**/*.safetensors
 
 # Hugging Face Cache
 .cache/

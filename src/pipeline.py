@@ -11,7 +11,7 @@ the fine-tuned model (and torch) are available.
 """
 
 from app.medicine_lookup import match_medicine
-from src.detection import WordDetector
+from src.detection import WordDetector, _to_rgb
 
 
 class PrescriptionPipeline:
@@ -40,30 +40,40 @@ class PrescriptionPipeline:
         match_score}.
         """
         reader = self._get_reader()
-        regions = self.detector.detect(page_image)
+        page = _to_rgb(page_image)
+        regions = self.detector.detect(page)
 
         medicines = []
         for region in regions:
             result = reader.read(region["crop"])
-            text = result["text"]
-            if not text:
-                continue
+            self._append_match(medicines, result, region["bbox"])
 
-            match = match_medicine(text, cutoff=self.match_cutoff)
-            if match is None:
-                continue  # not a recognized medicine -> drop
-
-            medicines.append(
-                {
-                    "bbox": region["bbox"],
-                    "raw_text": text,
-                    "matched_brand": match["matched_brand"],
-                    "generic": match["generic"],
-                    "ocr_confidence": round(result["confidence"], 3),
-                    "match_score": round(match["score"], 3),
-                }
-            )
+        if not medicines:
+            # The upload may already be a single word crop (like the dataset
+            # images), which the page detector over-segments into fragments.
+            # Reading the whole image often recovers it.
+            result = reader.read(page)
+            self._append_match(medicines, result, (0, 0, *page.size))
 
         # top-to-bottom, then left-to-right
         medicines.sort(key=lambda m: (m["bbox"][1], m["bbox"][0]))
         return medicines
+
+    def _append_match(self, medicines, result, bbox):
+        """Match an OCR result against the medicine list; append if it hits."""
+        text = result["text"]
+        if not text:
+            return
+        match = match_medicine(text, cutoff=self.match_cutoff)
+        if match is None:
+            return  # not a recognized medicine -> drop
+        medicines.append(
+            {
+                "bbox": tuple(int(v) for v in bbox),
+                "raw_text": text,
+                "matched_brand": match["matched_brand"],
+                "generic": match["generic"],
+                "ocr_confidence": round(result["confidence"], 3),
+                "match_score": round(match["score"], 3),
+            }
+        )

@@ -29,7 +29,11 @@ class PrescriptionReader:
         image = image.convert("RGB")
 
         pixel_values = self.processor(
-            images=image, return_tensors="pt"
+            images=image,
+            return_tensors="pt",
+            # Tiny crops (e.g. 1x50) make channel inference guess wrong; we
+            # always pass RGB PIL images, so the layout is known.
+            input_data_format="channels_last",
         ).pixel_values.to(self.device)
 
         out = self.model.generate(
@@ -53,10 +57,15 @@ class PrescriptionReader:
     def _confidence(self, generate_output):
         """Mean per-token probability from generation scores, as a float 0-1."""
         try:
+            kwargs = {}
+            # Beam search misattributes scores unless beam_indices is passed.
+            if getattr(generate_output, "beam_indices", None) is not None:
+                kwargs["beam_indices"] = generate_output.beam_indices
             transition = self.model.compute_transition_scores(
                 generate_output.sequences,
                 generate_output.scores,
                 normalize_logits=True,
+                **kwargs,
             )
             # transition holds log-probs of each generated token (padding is -inf)
             logprobs = transition[0]
